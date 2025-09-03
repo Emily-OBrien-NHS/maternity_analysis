@@ -61,6 +61,12 @@ current_patients = current_patients.merge(IMD, on='pcode', how='left')
 clinics = pd.read_excel('Clinic Locations.xlsx')
 clinics = clinics.merge(pcode_LL, left_on='pcode', right_on='FullPostCode', how='left')
 
+##############################Team Postcodes####################################
+teams = pd.read_excel('Team Locations.xlsx')
+current_patients['pcode stem'] = current_patients['pcode'].str.split(' ').apply(lambda x: x[0])
+current_patients = current_patients.merge(teams, on='pcode stem', how='left')
+current_patients['Team'] = current_patients['Team'].fillna('Other')
+
 ############################Heatmap Functions###################################
 def create_heatmap(DataFrame, name):
   #Group data to get count by postcode/latlong
@@ -236,3 +242,127 @@ plt.close()
 plt.savefig('Results/Languages - No Interpreter Required.png', bbox_inches='tight')
 plt.close()
 
+##################################Team Data#####################################
+#overall count
+(current_patients['Team'].value_counts()
+ .plot(kind='bar', title='Number of Maternity Patients per Team', xlabel='Team',
+       ylabel='Count of patients', figsize=(20, 15)))
+plt.savefig('Results/Number of Maternity Patients per Team.png', bbox_inches='tight')
+plt.close()
+
+#heatmap of proportion in each IMD for each team
+cols = ['Greenark', 'Fourwoods', 'Nomony', 'Cornwall', 'South Hams', 'Other']
+current_patients['IndexValue'] = current_patients['IndexValue'].astype(float)
+IMD_teams = (current_patients.groupby(['Team', 'IndexValue'], as_index=False)
+             ['Hospital Patient ID'].count()
+             .pivot(index='IndexValue', columns='Team',
+                    values='Hospital Patient ID').fillna(0).astype(int))[cols]
+IMD_teams.index = IMD_teams.index.astype(int)
+
+#create count heatmap
+fig, ax = plt.subplots(figsize=(25, 15))
+sns.set_theme(font_scale=2) 
+sns.heatmap(ax=ax, data=IMD_teams, annot=True, cmap='Blues', fmt='g')
+ax.set_title(f'Count within each Team by IMD for current Maternity Patients')
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=20)
+plt.savefig(f'Results/IMD and Team Count.png', bbox_inches='tight')
+plt.close()
+
+#Convert to proportions
+cols = ['Greenark', 'Fourwoods', 'Nomony', 'Cornwall', 'South Hams', 'Other']
+perc = ((IMD_teams/IMD_teams.sum()) * 100).round(0).astype(int)[cols]
+
+#create proportion heatmap
+fig, ax = plt.subplots(figsize=(25, 15))
+sns.set_theme(font_scale=2) 
+sns.heatmap(ax=ax, data=perc, annot=True, cmap='Blues')
+for t in ax.texts: t.set_text(t.get_text() + "%")
+ax.set_title(f'Percentages within each Team by IMD for current Maternity Patients')
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=20)
+plt.savefig(f'Results/IMD and Team percentage.png', bbox_inches='tight')
+plt.close()
+
+#English first language y/n
+languages = current_patients.groupby(['Team', 'English is First language',
+                                      'Interpreter Required'], as_index=False
+                                      )['Hospital Patient ID'].count()
+languages['Language Requirement'] = np.nan
+languages.loc[languages['English is First language'] == 'Yes',
+              'Language Requirement'] = 'English First Language'
+languages.loc[(languages['English is First language'] == 'No')
+              & (languages['Interpreter Required'] == 'Yes'),
+              'Language Requirement'] = 'Interpreter Required'
+languages['Language Requirement'] = languages['Language Requirement'
+                                             ].fillna('No Interpreter Required')
+languages = (languages.pivot(index='Team', columns='Language Requirement',
+                            values='Hospital Patient ID').fillna(0)
+                            .sort_values(by='English First Language',
+                                         ascending=False)
+                            [['English First Language', 'No Interpreter Required',
+                              'Interpreter Required']])
+
+values = {"English First Language": languages['English First Language'],
+          "No Interpreter Required": languages['No Interpreter Required'],
+          "Interpreter Required":languages['Interpreter Required']}
+width = 0.5
+
+fig, ax = plt.subplots(figsize=(20, 10))
+bottom = np.zeros(len(languages))
+for boolean, value in values.items():
+    p = ax.bar(languages.index, value, width, label=boolean, bottom=bottom)
+    bottom += value
+ax.set_title("Language Requirements by Team")
+ax.legend(loc="upper right")
+plt.savefig(f'Results/Language Requirements by Team.png', bbox_inches='tight')
+plt.close()
+
+
+#languages spoken
+languages = (current_patients.loc[current_patients['Interpreter Required'] == 'Yes']
+             .groupby(['Team', 'First Language'], as_index=False)
+             ['Hospital Patient ID'].count()
+             .pivot(index='Team', #'First Language',
+                    columns='First Language',#'Team',
+                    values='Hospital Patient ID'))
+#create heatmap
+fig, ax = plt.subplots(figsize=(30, 15))
+sns.set_theme(font_scale=2) 
+sns.heatmap(ax=ax, data=languages, annot=True, cmap='Blues')
+ax.set_title(f'Count of First Languages of Maternity Patients who require a Translator')
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=20)
+plt.savefig(f'Results/First Language by Team.png', bbox_inches='tight')
+plt.close()
+
+
+
+
+#Ethnicity by team
+eth = (current_patients.groupby(['Team', 'Ethnicity Group'], as_index=False)
+       ['Hospital Patient ID'].count()
+       .pivot(index='Ethnicity Group', columns='Team',
+              values='Hospital Patient ID').fillna(0)
+        [['South Hams', 'Cornwall', 'Fourwoods', 'Greenark', 'Nomony', 'Other']]
+        .sort_values(by='South Hams', ascending=False))
+
+#create count heatmap
+fig, ax = plt.subplots(figsize=(25, 15))
+sns.set_theme(font_scale=2) 
+sns.heatmap(ax=ax, data=eth, annot=True, cmap='Blues', fmt='g')
+ax.set_title(f'Count within each Team by ethnicity for current Maternity Patients')
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=20)
+plt.savefig(f'Results/Ethnicity and Team Count.png', bbox_inches='tight')
+plt.close()
+
+#Convert to proportions
+cols = ['Cornwall', 'South Hams', 'Fourwoods','Greenark','Nomony',  'Other']
+perc = ((eth/eth.sum()) * 100).round(0).astype(int)[cols]
+
+#create proportion heatmap
+fig, ax = plt.subplots(figsize=(25, 15))
+sns.set_theme(font_scale=2) 
+sns.heatmap(ax=ax, data=perc, annot=True, cmap='Blues')
+for t in ax.texts: t.set_text(t.get_text() + "%")
+ax.set_title(f'Percentages within each Team by ethnicity for current Maternity Patients')
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=20)
+plt.savefig(f'Results/Ethnicity and Team percentage.png', bbox_inches='tight')
+plt.close()
