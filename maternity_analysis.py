@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from folium.plugins import HeatMap
 from sqlalchemy import create_engine
-os.chdir('C:/Users/obriene/Projects/General Analysis/Maternity')
+os.chdir('G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Maternity')
 
 
 sdmart_engine = create_engine('mssql+pyodbc://@SDMartDataLive2/InfoDB?'\
@@ -17,7 +17,7 @@ sdmart_engine = create_engine('mssql+pyodbc://@SDMartDataLive2/InfoDB?'\
 deliveries_query = """
 SELECT *
   FROM [InfoDB].[dbo].[RL_Maternity_upload_All]
-  WHERE [Birth Order_New] = 1 AND [Delivery Date / Time] > '31-07-2024'
+  WHERE [Birth Order_New] = 1 AND [Delivery Date / Time] > '31-07-2025'
   --and [Hospital Delivery Site] = 'Derriford Hospital' --if only wanting births with UHP, not patients who've given birth elsewhere and come to us
 """
 deliveries = pd.read_sql(deliveries_query, sdmart_engine)
@@ -25,7 +25,7 @@ deliveries = pd.read_sql(deliveries_query, sdmart_engine)
 antinatal_query = """
 SELECT *
   FROM [InfoDB].[dbo].[RL_Antinatal_Test]
-  WHERE [Boooking Date] > '31-07-2024'
+  WHERE [Boooking Date] > '31-07-2025'
 """
 antinatal = pd.read_sql(antinatal_query, sdmart_engine)
 
@@ -36,11 +36,12 @@ IMD = pd.read_sql(IMD_query, sdmart_engine)
 IMD['pcode'] = IMD['PostcodeFormatted'].str.replace('  ', ' ')
 
 
-pcode_LL = pd.read_csv('C:/Users/obriene/Projects/Mapping/ukpostcodes.csv').rename(columns={'postcode':'FullPostCode'})
+pcode_LL = pd.read_csv('G:/PerfInfo/Performance Management/OR Team/Emily Projects/Mapping/ukpostcodes.csv').rename(columns={'postcode':'FullPostCode'})
 
 ##################################Patients######################################
-current_patients = pd.read_excel('Patient under the care of Maternity - 01_08_2024 to 31_07_2025.xlsx')
+current_patients = pd.read_excel('Patient_with_an_EDD_under_the_care_of_Maternity_ from 01_08_2025.xlsx')
 #Remove duplicates by keeping most recent EDD row
+current_patients['EDD'] = pd.to_datetime(current_patients['EDD'])
 current_patients = current_patients.sort_values(by='EDD', ascending=False)
 current_patients = current_patients.groupby('NHS Number').first()
 
