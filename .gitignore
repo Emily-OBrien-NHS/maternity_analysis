@@ -7,6 +7,9 @@
 # any csv files
 *.csv
 
+#any txt files
+*.txt
+
 #any pptx files
 *.pptx
 
